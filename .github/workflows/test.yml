@@ -33,4 +33,4 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Build and test
-        run: ./gradlew build jacocoTestReport
+        run: ./gradlew build
