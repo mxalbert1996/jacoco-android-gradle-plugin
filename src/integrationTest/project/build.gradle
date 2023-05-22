@@ -1,0 +1,58 @@
+plugins {
+    id("org.jetbrains.kotlin.android") version "1.8.21"
+    id("com.android.library") version "8.0.1"
+    id("com.mxalbert.gradle.jacoco-android")
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+android {
+    namespace = "test"
+    compileSdk = 33
+    buildToolsVersion = "33.0.0"
+
+    defaultConfig {
+        minSdk = 21
+    }
+
+    buildTypes {
+        debugProguard
+        release {
+            signingConfig = signingConfigs.debug
+            minifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
+
+    flavorDimensions = ["default"]
+    productFlavors {
+        free
+        paid
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.10"
+}
+
+jacocoAndroidUnitTestReport {
+    csv.isEnabled = true
+    html.isEnabled = true
+    xml.isEnabled = true
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+}

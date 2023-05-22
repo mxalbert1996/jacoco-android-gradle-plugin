@@ -1,0 +1,14 @@
+pluginManagement {
+    repositories {
+        maven {
+            url = "file://${rootProject.projectDir.absolutePath}/../../../build/localMaven"
+        }
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+    plugins {
+        id("com.mxalbert.gradle.jacoco-android") version pluginVersion
+    }
+}
+include(":")
