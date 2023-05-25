@@ -66,7 +66,7 @@ class JacocoAndroidPluginTest {
     fun `should use extension's excludes`() {
         project.configureAndroidLibraryAndApplyPlugin()
         project.jacocoAndroidUnitTestReport {
-            excludes = listOf("some exclude")
+            excludes.set(listOf("some exclude"))
         }
         project.evaluate()
         assertAllJacocoReportTasksExclude("some exclude")
@@ -76,7 +76,7 @@ class JacocoAndroidPluginTest {
     fun `should merge default and extension's excludes`() {
         project.configureAndroidLibraryAndApplyPlugin()
         project.jacocoAndroidUnitTestReport {
-            excludes += "some exclude"
+            excludes.add("some exclude")
         }
         project.evaluate()
         assertAllJacocoReportTasksExclude("default exclude", "some exclude")
@@ -86,9 +86,9 @@ class JacocoAndroidPluginTest {
     fun `should use extension's report configuration`() {
         project.configureAndroidLibraryAndApplyPlugin()
         project.jacocoAndroidUnitTestReport {
-            csv.isEnabled = true
-            html.isEnabled = true
-            xml.isEnabled = true
+            csv.required.set(true)
+            html.required.set(true)
+            xml.required.set(true)
         }
         project.evaluate()
         eachJacocoReportTask {

@@ -48,9 +48,9 @@ jacoco {
 }
 
 jacocoAndroidUnitTestReport {
-    csv.isEnabled = true
-    html.isEnabled = true
-    xml.isEnabled = true
+    csv.required = true
+    html.required = true
+    xml.required = true
 }
 
 dependencies {

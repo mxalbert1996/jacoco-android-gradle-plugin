@@ -1,13 +1,29 @@
 package com.mxalbert.gradle.jacoco.android
 
+import org.gradle.api.Project
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
 import java.util.Collections
 
-open class JacocoAndroidUnitTestReportExtension(var excludes: Collection<String>) {
+open class JacocoAndroidUnitTestReportExtension internal constructor(
+    project: Project,
+    defaultExcludes: Collection<String>
+) {
 
-    val csv: ReportConfiguration = ReportConfiguration(false)
-    val html: ReportConfiguration = ReportConfiguration(true)
-    val xml: ReportConfiguration = ReportConfiguration(true)
-    var destination: String? = null
+    val excludes: SetProperty<String> = project.objects.setProperty(String::class.java).apply {
+        set(defaultExcludes)
+    }
+
+    val csv: ReportConfiguration = project.objects
+        .newInstance(ReportConfiguration::class.java).apply { required.convention(false) }
+
+    val html: ReportConfiguration = project.objects
+        .newInstance(ReportConfiguration::class.java).apply { required.convention(true) }
+
+    val xml: ReportConfiguration = project.objects
+        .newInstance(ReportConfiguration::class.java).apply { required.convention(true) }
+
+    val destination: Property<String> = project.objects.property(String::class.java)
 
     companion object {
 
