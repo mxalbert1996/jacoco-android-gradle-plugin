@@ -23,6 +23,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare environment
+        env:
+          GRADLE_PROPERTIES: ${{ secrets.GRADLE_PROPERTIES }}
+        run: sh -c "mkdir -p ~/.gradle && echo '${GRADLE_PROPERTIES}' > ~/.gradle/gradle.properties"
+
       - name: Setup JDK
         uses: actions/setup-java@v3
         with:
@@ -33,4 +38,6 @@ jobs:
         uses: gradle/gradle-build-action@v2
 
       - name: Build and test
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_KEY }}
         run: ./gradlew build
