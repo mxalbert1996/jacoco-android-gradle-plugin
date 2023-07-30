@@ -6,10 +6,9 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.logging.Logging
-import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.testing.Test
 import org.gradle.testing.jacoco.plugins.JacocoPlugin
-import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.File
@@ -27,11 +26,16 @@ class JacocoAndroidPlugin : Plugin<Project> {
         )
         val jacocoTestReportTask = project.findOrCreateJacocoTestReportTask()
 
+        val reportTaskConfigurations = mutableMapOf<String, Project.(Task) -> Unit>()
         project.extensions.configure(AndroidComponentsExtension::class.java) { androidComponents ->
             androidComponents.onVariants { variant ->
-                val reportTask = project.createReportTask(extension, variant)
-                jacocoTestReportTask.dependsOn(reportTask)
+                val (unitTestTaskName, action) =
+                    reportTaskCreationAction(extension, variant, jacocoTestReportTask)
+                reportTaskConfigurations[unitTestTaskName] = action
             }
+        }
+        project.tasks.withType(Test::class.java) { testTask ->
+            reportTaskConfigurations[testTask.name]?.invoke(project, testTask)
         }
     }
 
@@ -55,76 +59,77 @@ class JacocoAndroidPlugin : Plugin<Project> {
                 ?: tasks.create("jacocoTestReport").apply { group = "Reporting" }
 
         @Suppress("UnstableApiUsage")
-        private fun Project.createReportTask(
+        private fun reportTaskCreationAction(
             ext: JacocoAndroidUnitTestReportExtension,
-            variant: Variant
-        ): TaskProvider<JacocoReport> {
+            variant: Variant,
+            parentTask: Task
+        ): Pair<String, Project.(Task) -> Unit> {
             val name = variant.name
             val capitalizedName = name.replaceFirstChar { it.titlecase() }
             val javaSources = variant.sources.java?.all?.orNull
             val kotlinSources = variant.sources.kotlin?.all?.orNull
 
-            val reportTask = tasks.register(
-                "jacocoTest${capitalizedName}UnitTestReport",
-                JacocoReport::class.java
-            ) { reportTask ->
-                val testTask = tasks.getByName("test${capitalizedName}UnitTest")
-                val executionData =
-                    testTask.extensions.getByType(JacocoTaskExtension::class.java).destinationFile
-                reportTask.dependsOn(testTask)
-                reportTask.group = "Reporting"
-                reportTask.description =
-                    "Generates Jacoco coverage reports for the $name variant."
-                executionData?.let { reportTask.executionData.setFrom(files(it)) }
-                reportTask.sourceDirectories.apply {
-                    javaSources?.let { from(files(it)) }
-                    kotlinSources?.let { from(files(it)) }
-                }
-
-                val javaCompile =
-                    tasks.getByName("compile${capitalizedName}JavaWithJavac") as JavaCompile
-                val javaClassesDir = javaCompile.destinationDirectory
-                val javaTree = fileTree(javaClassesDir) { it.exclude(ext.excludes.get()) }
-                reportTask.classDirectories.from(javaTree)
-
-                if (plugins.hasPlugin("kotlin-android")) {
-                    val kotlinCompile =
-                        tasks.getByName("compile${capitalizedName}Kotlin") as KotlinCompile
-                    val kotlinClassesDir = kotlinCompile.destinationDirectory
-                    val kotlinTree = fileTree(kotlinClassesDir) { it.exclude(ext.excludes.get()) }
-                    reportTask.classDirectories.from(kotlinTree)
-                }
-
-                reportTask.reports { reports ->
-                    reports.csv.required.set(ext.csv.required.get())
-                    if (ext.csv.required.get()) {
-                        reports.csv.outputLocation.set(
-                            ext.destination.orNull?.let { File("$it/jacoco.csv") }
-                                ?: File(buildDir, "jacoco/jacoco.csv")
-                        )
+            return "test${capitalizedName}UnitTest" to { testTask ->
+                val reportTask = tasks.register(
+                    "jacocoTest${capitalizedName}UnitTestReport",
+                    JacocoReport::class.java
+                ) { reportTask ->
+                    reportTask.dependsOn(testTask)
+                    reportTask.group = "Reporting"
+                    reportTask.description =
+                        "Generates Jacoco coverage reports for the $name variant."
+                    reportTask.executionData(testTask)
+                    reportTask.sourceDirectories.apply {
+                        javaSources?.let { from(files(it)) }
+                        kotlinSources?.let { from(files(it)) }
                     }
 
-                    reports.html.required.set(ext.html.required.get())
-                    if (ext.html.required.get()) {
-                        reports.html.outputLocation.set(
-                            ext.destination.orNull?.let { File("$it/jacocoHtml") }
-                                ?: File(buildDir, "jacoco/jacocoHtml")
-                        )
+                    val javaCompile =
+                        tasks.getByName("compile${capitalizedName}JavaWithJavac") as JavaCompile
+                    val javaClassesDir = javaCompile.destinationDirectory
+                    val javaTree = fileTree(javaClassesDir) { it.exclude(ext.excludes.get()) }
+                    reportTask.classDirectories.from(javaTree)
+
+                    if (plugins.hasPlugin("kotlin-android")) {
+                        val kotlinCompile =
+                            tasks.getByName("compile${capitalizedName}Kotlin") as KotlinCompile
+                        val kotlinClassesDir = kotlinCompile.destinationDirectory
+                        val kotlinTree =
+                            fileTree(kotlinClassesDir) { it.exclude(ext.excludes.get()) }
+                        reportTask.classDirectories.from(kotlinTree)
                     }
 
-                    reports.xml.required.set(ext.xml.required.get())
-                    if (ext.xml.required.get()) {
-                        reports.xml.outputLocation.set(
-                            ext.destination.orNull?.let { File("$it/jacoco.xml") }
-                                ?: File(buildDir, "jacoco/jacoco.xml")
-                        )
+                    reportTask.reports { reports ->
+                        reports.csv.required.set(ext.csv.required.get())
+                        if (ext.csv.required.get()) {
+                            reports.csv.outputLocation.set(
+                                ext.destination.orNull?.let { File("$it/jacoco.csv") }
+                                    ?: File(buildDir, "jacoco/jacoco.csv")
+                            )
+                        }
+
+                        reports.html.required.set(ext.html.required.get())
+                        if (ext.html.required.get()) {
+                            reports.html.outputLocation.set(
+                                ext.destination.orNull?.let { File("$it/jacocoHtml") }
+                                    ?: File(buildDir, "jacoco/jacocoHtml")
+                            )
+                        }
+
+                        reports.xml.required.set(ext.xml.required.get())
+                        if (ext.xml.required.get()) {
+                            reports.xml.outputLocation.set(
+                                ext.destination.orNull?.let { File("$it/jacoco.xml") }
+                                    ?: File(buildDir, "jacoco/jacoco.xml")
+                            )
+                        }
                     }
+
+                    logTaskAdded(reportTask)
                 }
 
-                logTaskAdded(reportTask)
+                parentTask.dependsOn(reportTask)
             }
-
-            return reportTask
         }
 
         private fun logTaskAdded(reportTask: JacocoReport) {
