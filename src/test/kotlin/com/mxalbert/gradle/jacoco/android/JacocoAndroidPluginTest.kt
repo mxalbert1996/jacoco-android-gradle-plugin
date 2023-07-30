@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import java.io.File
 
@@ -53,6 +54,17 @@ class JacocoAndroidPluginTest {
         assertNotNull(project.tasks.findByName("jacocoTestPaidReleaseUnitTestReport"))
         assertNotNull(project.tasks.findByName("jacocoTestFreeReleaseUnitTestReport"))
         assertNotNull(project.tasks.findByName("jacocoTestReport"))
+    }
+
+    @Test
+    fun `should work even if the tasks are eagerly configured`() {
+        project.tasks.withType(JacocoReport::class.java) {
+            // Do nothing. We just want to force the tasks to be configured.
+        }
+        project.configureAndroidLibraryAndApplyPlugin()
+        assertDoesNotThrow {
+            project.evaluate()
+        }
     }
 
     @Test
