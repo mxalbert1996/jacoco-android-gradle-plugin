@@ -7,7 +7,6 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.logging.Logging
 import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.api.tasks.testing.Test
 import org.gradle.testing.jacoco.plugins.JacocoPlugin
 import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -26,16 +25,18 @@ class JacocoAndroidPlugin : Plugin<Project> {
         )
         val jacocoTestReportTask = project.findOrCreateJacocoTestReportTask()
 
-        val reportTaskConfigurations = mutableMapOf<String, Project.(Task) -> Unit>()
+        val reportTaskConfigurations = mutableListOf<Project.() -> Unit>()
         project.extensions.configure(AndroidComponentsExtension::class.java) { androidComponents ->
             androidComponents.onVariants { variant ->
-                val (unitTestTaskName, action) =
+                reportTaskConfigurations +=
                     reportTaskCreationAction(extension, variant, jacocoTestReportTask)
-                reportTaskConfigurations[unitTestTaskName] = action
             }
         }
-        project.tasks.withType(Test::class.java) { testTask ->
-            reportTaskConfigurations[testTask.name]?.invoke(project, testTask)
+
+        // Android Gradle Plugin creates the tasks in a `afterEvaluate` block,
+        // so we have to do the same.
+        project.afterEvaluate {
+            reportTaskConfigurations.forEach { it.invoke(project) }
         }
     }
 
@@ -63,17 +64,18 @@ class JacocoAndroidPlugin : Plugin<Project> {
             ext: JacocoAndroidUnitTestReportExtension,
             variant: Variant,
             parentTask: Task
-        ): Pair<String, Project.(Task) -> Unit> {
+        ): Project.() -> Unit {
             val name = variant.name
             val capitalizedName = name.replaceFirstChar { it.titlecase() }
             val javaSources = variant.sources.java?.all?.orNull
             val kotlinSources = variant.sources.kotlin?.all?.orNull
 
-            return "test${capitalizedName}UnitTest" to { testTask ->
+            return {
                 val reportTask = tasks.register(
                     "jacocoTest${capitalizedName}UnitTestReport",
                     JacocoReport::class.java
                 ) { reportTask ->
+                    val testTask = tasks.getByName("test${capitalizedName}UnitTest")
                     reportTask.dependsOn(testTask)
                     reportTask.group = "Reporting"
                     reportTask.description =
