@@ -91,6 +91,7 @@ class JacocoAndroidPlugin : Plugin<Project> {
                     val javaClassesDir = javaCompile.destinationDirectory
                     val javaTree = fileTree(javaClassesDir) { it.exclude(ext.excludes.get()) }
                     reportTask.classDirectories.from(javaTree)
+                    reportTask.dependsOn(javaCompile)
 
                     if (plugins.hasPlugin("kotlin-android")) {
                         val kotlinCompile =
@@ -99,6 +100,7 @@ class JacocoAndroidPlugin : Plugin<Project> {
                         val kotlinTree =
                             fileTree(kotlinClassesDir) { it.exclude(ext.excludes.get()) }
                         reportTask.classDirectories.from(kotlinTree)
+                        reportTask.dependsOn(kotlinCompile)
                     }
 
                     reportTask.reports { reports ->
